@@ -65,4 +65,5 @@ class MusicDownloader:
         music_url = self.search_music(artist, music_name)
         with youtube_dl.YoutubeDL(ydl_opts) as ydl:
             ydl.download([music_url])
+        return os.path.join(self.OUTPUT_PATH, f"{artist} - {music_name}.mp3")
 

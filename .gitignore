@@ -164,3 +164,6 @@ cython_debug/
 # Iluvatar
 musics/*
 noise_meshes.json
+.DS_Store
+mlruns/*
+ca/*
