@@ -167,3 +167,4 @@ noise_meshes.json
 .DS_Store
 mlruns/*
 ca/*
+model/sentiment_model_*

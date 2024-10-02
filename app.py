@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordBearer
 from elasticsearch import Elasticsearch, exceptions as es_exceptions
 from iluvatar import Iluvatar, MusicDownloader
+from model.model import MusicSentimentModel, SentimentModel
 import os
 from dotenv import load_dotenv
 
@@ -14,6 +15,7 @@ OUTPUT_PATH = os.getenv('OUTPUT_PATH')
 YOUTUBE_TOKEN = os.getenv('YOUTUBE_TOKEN')
 md = MusicDownloader(YOUTUBE_TOKEN, OUTPUT_PATH)
 
+model = SentimentModel()
 app = FastAPI()
 
 app.add_middleware(
@@ -30,7 +32,6 @@ es = Elasticsearch("https://localhost:9200/", http_auth=('elastic', '123456'),
                    ca_certs="ca/ca.crt", client_cert="ca/ca.crt", 
                    client_key="ca/ca.key", verify_certs=True)
 
-# create index if doesnt exists
 es.indices.create(index=INDEX, ignore=400)
 
 @app.exception_handler(HTTPException)
@@ -67,13 +68,16 @@ async def create_music(music: dict):
         list_musics = await read_music(music['music'], music['artist'])
         if(len(list_musics['hits']['hits']) > 0 ):
             return {"music_id": list_musics['hits']['hits'][0]["_id"], "music": list_musics['hits']['hits'][0]['_source']}
-        music_path = md.download_music(music['artist'], music['music'])
-        features = Iluvatar.extract_features(music_path)
-        mesh_noise = Iluvatar.process_input(features)
-        music['simple_noise'] = music_feature = Iluvatar.format_to_godot_noise(mesh_noise)
+        music['path'] = md.download_music(music['artist'], music['music'])
+        music['features'] = Iluvatar.extract_features(music['path'])
+        mesh_noise = Iluvatar.process_input(music['features'])
+        music['simple_noise'] = Iluvatar.format_to_godot_noise(mesh_noise).tolist()
         music['in_use'] = False
+        outputs = model.predict(music['features'])
+        music['label'] = outputs
         response = es.index(index=INDEX, body=music)
         return {"music_id": response["_id"], "music": music}
+        return music
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
